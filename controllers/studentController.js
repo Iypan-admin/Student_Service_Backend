@@ -17,13 +17,13 @@ const registerStudent = async (req, res) => {
 
     const { data, error } = await supabase
         .from('students')
-        .insert([{  
-            name, 
-            state, 
-            center, 
-            email, 
-            password: hashedPassword, 
-            phone, 
+        .insert([{
+            name,
+            state,
+            center,
+            email,
+            password: hashedPassword,
+            phone,
             status: false // Default status is false
         }])
         .select(); // Fetch the inserted row details
@@ -229,7 +229,7 @@ const forgotPassword = async (req, res) => {
             `
         });
 
-        res.json({ 
+        res.json({
             message: 'Password reset code sent to your email',
             email: student.email.replace(/(.{2})(.*)(?=@)/, (_, start, rest) => start + '*'.repeat(rest.length))
         });
@@ -281,13 +281,13 @@ const resetPassword = async (req, res) => {
     }
 };
 
-module.exports = { 
-    registerStudent, 
-    loginStudent, 
+module.exports = {
+    registerStudent,
+    loginStudent,
     getStudentDetails,
-    updateStudent, 
-    deleteStudent, 
-    getStates, 
+    updateStudent,
+    deleteStudent,
+    getStates,
     getCentersByState,
     forgotPassword,
     resetPassword
