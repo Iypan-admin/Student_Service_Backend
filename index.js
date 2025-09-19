@@ -14,6 +14,12 @@ dotenv.config();
 
 const app = express();
 app.use(cors());
+
+// ✅ Important: JSON parser apply panna vendiyathu *after* webhook
+// Razorpay webhook needs raw body
+app.use("/api/razorpay/webhook", webhookPaymentRoutes);
+
+// ✅ For all other routes → JSON parser okay
 app.use(express.json());
 
 // ✅ Student, Batch, Class, Payment APIs
@@ -26,7 +32,6 @@ app.use('/api/payment-lock', paymentLockRoutes);
 
 // ✅ Razorpay APIs
 app.use("/api/razorpay", razorpayRoutes);
-app.use("/api/razorpay/webhook", webhookPaymentRoutes);
 
 const PORT = process.env.PORT || 3006;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
