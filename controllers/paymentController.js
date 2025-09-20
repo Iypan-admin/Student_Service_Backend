@@ -81,57 +81,69 @@ const getTransactions = async (req, res) => {
 const razorpayWebhook = async (req, res) => {
     const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
-    // 1. Verify Razorpay signature
-    const shasum = crypto.createHmac("sha256", secret);
-    shasum.update(JSON.stringify(req.body));
-    const digest = shasum.digest("hex");
-
-    if (digest !== req.headers["x-razorpay-signature"]) {
-        return res.status(400).json({ error: "Invalid signature" });
-    }
-
     try {
-        const payload = req.body;
+        // 1️⃣ Verify Razorpay signature
+        const shasum = crypto.createHmac("sha256", secret);
+        shasum.update(JSON.stringify(req.body));
+        const digest = shasum.digest("hex");
 
-        // 2. Extract payment details
+        if (digest !== req.headers["x-razorpay-signature"]) {
+            console.error("❌ Invalid Razorpay signature");
+            // ✅ Still respond 200 to prevent webhook disable
+            return res.status(200).json({ error: "Invalid signature" });
+        }
+
+        // ✅ Acknowledge Razorpay immediately
+        res.status(200).json({ message: "Webhook received" });
+
+        const payload = req.body;
         const transaction_id = payload.payload.payment.entity.id;
         const enrollment_id = payload.payload.payment.entity.notes.enrollment_id;
 
         if (!enrollment_id) {
-            return res.status(400).json({ error: "Missing enrollment_id in Razorpay notes." });
+            console.error("❌ Missing enrollment_id in Razorpay notes.");
+            return; // already sent 200 OK
         }
 
-        // 🔑 Find last duration for this enrollment
-        const { data: lastPayment } = await supabase
-            .from("transactions")
-            .select("duration")
-            .eq("enrollment_id", enrollment_id)
-            .order("duration", { ascending: false })
-            .limit(1);
+        // 🔹 Insert DB in background
+        process.nextTick(async () => {
+            try {
+                // Find last duration
+                const { data: lastPayment } = await supabase
+                    .from("transactions")
+                    .select("duration")
+                    .eq("enrollment_id", enrollment_id)
+                    .order("duration", { ascending: false })
+                    .limit(1);
 
-        let nextDuration = 1;
-        if (lastPayment && lastPayment.length > 0) {
-            nextDuration = lastPayment[0].duration + 1;
-        }
+                let nextDuration = 1;
+                if (lastPayment && lastPayment.length > 0) {
+                    nextDuration = lastPayment[0].duration + 1;
+                }
 
-        // 3. Insert into transactions table
-        const { data, error } = await supabase
-            .from("transactions")
-            .insert([
-                {
-                    enrollment_id,
-                    transaction_id,
-                    duration: nextDuration,
-                    status: false,
-                },
-            ])
-            .select();
+                // Insert transaction
+                const { data, error } = await supabase
+                    .from("transactions")
+                    .insert([
+                        {
+                            enrollment_id,
+                            transaction_id,
+                            duration: nextDuration,
+                            status: false,
+                        },
+                    ])
+                    .select();
 
-        if (error) throw error;
-
-        res.status(200).json({ message: "Payment recorded via Razorpay", transaction: data });
+                if (error) console.error("❌ Supabase insert error:", error);
+                else console.log("✅ Payment recorded via Razorpay:", data);
+            } catch (err) {
+                console.error("❌ Background DB error:", err);
+            }
+        });
     } catch (err) {
-        res.status(500).json({ error: "Webhook processing failed", details: err.message });
+        console.error("❌ Webhook processing error:", err);
+        // ✅ Still respond 200 to Razorpay
+        res.status(200).json({ error: "Webhook error logged" });
     }
 };
 
