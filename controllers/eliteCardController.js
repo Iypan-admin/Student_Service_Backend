@@ -4,8 +4,8 @@ const supabase = require('../config/supabaseClient');
 const getEliteCardByRegNo = async (req, res) => {
     try {
         // Debug logs
-        console.log("✅ Route hit: GET /elite-card/:register_number");
-        console.log("📥 Registration Number:", req.params.registration_number);
+        // console.log("✅ Route hit: GET /elite-card/:register_number");
+        // console.log("📥 Registration Number:", req.params.registration_number);
 
         const { registration_number } = req.params;
 
