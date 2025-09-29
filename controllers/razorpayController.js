@@ -75,11 +75,7 @@ const createOrder = async (req, res) => {
 // ---------------- VERIFY PAYMENT ----------------
 const verifyPayment = async (req, res) => {
     try {
-        const {
-            razorpay_order_id,
-            razorpay_payment_id,
-            razorpay_signature,
-        } = req.body;
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
         // ✅ Verify Signature
         const sign = razorpay_order_id + "|" + razorpay_payment_id;
@@ -95,12 +91,12 @@ const verifyPayment = async (req, res) => {
 
         console.log("✅ Payment verified successfully");
 
-        // ✅ 1. Fetch Order (for notes)
+        // ✅ Fetch Order (for notes)
         const orderDetails = await razorpay.orders.fetch(razorpay_order_id);
         const notes = orderDetails.notes || {};
         console.log("🟢 Notes from Razorpay order:", notes);
 
-        // ✅ 2. Fetch Payment (for bank_rrn)
+        // ✅ Fetch Payment (for bank_rrn)
         const paymentDetails = await razorpay.payments.fetch(razorpay_payment_id);
         console.log("🟢 Razorpay payment details:", paymentDetails);
 
@@ -120,11 +116,13 @@ const verifyPayment = async (req, res) => {
             current_emi
         } = notes;
 
-        // ✅ Debug logs for enrollment_id type & value
         console.log("🟢 enrollment_id type:", typeof enrollment_id, "value:", enrollment_id);
 
-        // ✅ Bank RRN direct from Razorpay payment object
-        const bank_rrn = paymentDetails.acquirer_data?.rrn || null;
+        // ✅ Bank RRN fallback for Wallet / UPI
+        const bank_rrn =
+            paymentDetails.acquirer_data?.rrn ||
+            paymentDetails.acquirer_data?.upi_transaction_id ||
+            null;
 
         // ✅ Insert into Supabase (only student_course_payment)
         const { data, error } = await supabaseAdmin
@@ -135,7 +133,7 @@ const verifyPayment = async (req, res) => {
                 student_name,
                 email,
                 contact,
-                course_name, // 🔹 fixed missing comma earlier
+                course_name,
                 course_duration: Number(course_duration) || 0,
                 original_fees: Number(original_fees) || 0,
                 discount_percentage: Number(discount_percentage) || 0,
@@ -146,7 +144,7 @@ const verifyPayment = async (req, res) => {
                 payment_id: razorpay_payment_id,
                 order_id: razorpay_order_id,
                 bank_rrn,
-                status: "false",
+                status: false, // ✅ boolean false
             }]);
 
         if (error) {

@@ -3,10 +3,10 @@ const express = require("express");
 const router = express.Router();
 const { razorpayWebhook } = require("../controllers/paymentWebhookController");
 
-// ✅ use express.raw instead of express.json
+// ✅ Use express.raw({ type: "*/*" }) for Razorpay webhook
 router.post(
     "/razorpay/webhook",
-    express.raw({ type: "application/json" }),
+    express.raw({ type: "*/*" }),
     razorpayWebhook
 );
 
