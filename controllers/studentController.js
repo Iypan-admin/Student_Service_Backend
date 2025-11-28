@@ -37,35 +37,53 @@ const registerStudent = async (req, res) => {
 
 // Login Student
 const loginStudent = async (req, res) => {
-    const { registration_number, password } = req.body;
+    try {
+        const { registration_number, password } = req.body;
 
-    if (!registration_number || !password) {
-        return res.status(400).json({ error: 'Registration number and password are required' });
+        console.log('🔐 Login attempt:', { registration_number, hasPassword: !!password });
+
+        if (!registration_number || !password) {
+            console.log('❌ Missing credentials');
+            return res.status(400).json({ error: 'Registration number and password are required' });
+        }
+
+        const { data: students, error } = await supabase
+            .from('students')
+            .select('*')
+            .eq('registration_number', registration_number)
+            .limit(1);
+
+        if (error) {
+            console.error('❌ Supabase error:', error);
+            return res.status(400).json({ error: 'Database error: ' + error.message });
+        }
+
+        if (students.length === 0) {
+            console.log('❌ Student not found:', registration_number);
+            return res.status(400).json({ error: 'Invalid credentials - Student not found' });
+        }
+
+        const student = students[0];
+        console.log('✅ Student found:', { student_id: student.student_id, status: student.status });
+
+        const isMatch = await bcrypt.compare(password, student.password);
+        if (!isMatch) {
+            console.log('❌ Password mismatch');
+            return res.status(400).json({ error: 'Invalid credentials - Wrong password' });
+        }
+
+        if (!student.status) {
+            console.log('❌ Student not approved:', student.student_id);
+            return res.status(403).json({ error: 'Your profile needs to be approved by admin' });
+        }
+
+        const token = generateToken(student.student_id, student.center, student.state);
+        console.log('✅ Login successful:', student.student_id);
+        res.json({ message: 'Login successful', token });
+    } catch (err) {
+        console.error('❌ Login error:', err);
+        res.status(500).json({ error: 'Internal server error: ' + err.message });
     }
-
-    const { data: students, error } = await supabase
-        .from('students')
-        .select('*')
-        .eq('registration_number', registration_number)
-        .limit(1);
-
-    if (error || students.length === 0) {
-        return res.status(400).json({ error: 'Invalid credentials' });
-    }
-
-    const student = students[0];
-
-    const isMatch = await bcrypt.compare(password, student.password);
-    if (!isMatch) {
-        return res.status(400).json({ error: 'Invalid credentials' });
-    }
-
-    if (!student.status) {
-        return res.status(403).json({ error: 'Your profile needs to be approved' });
-    }
-
-    const token = generateToken(student.student_id, student.center, student.state);
-    res.json({ message: 'Login successful', token });
 };
 
 const getStudentDetails = async (req, res) => {

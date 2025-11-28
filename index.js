@@ -43,7 +43,12 @@ app.use((req, res) => {
 });
 
 // Global error handler (optional)
+// ✅ IMPORTANT: Exclude webhook route from global error handler to prevent webhook disable
 app.use((err, req, res, next) => {
+    // ✅ Skip error handling for webhook routes (they handle their own errors)
+    if (req.path.includes('/razorpay/webhook')) {
+        return next(); // Don't interfere with webhook
+    }
     console.error("Global error:", err);
     res.status(500).json({ success: false, message: "Internal Server Error" });
 });
